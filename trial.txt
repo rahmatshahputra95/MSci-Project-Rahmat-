@@ -1,0 +1,52 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import itertools
+import pymc3 as pm
+
+
+
+
+#calculate the one dimensional model for seismic displacement
+
+#first step is to define all the parameters given in Beker's paper in page 84
+
+rho0 = 1800 #Density of the homogeneous medium in unit of kg/m^3
+alpha = 0.31 #Parameter to determine primary wave speed 
+beta = 0.25 #Parameter to determine primary wave speed 
+nu = 0.25 #Poisson ratio 
+
+#second step is to calculate the speed of the waves using equation from Beker's paper page 84
+
+CP = ((rho0/1000) / alpha)**(1.0 / beta) #speed of primary waves (compressional waves) 
+CS = np.sqrt((1-2*nu)/(2-2*nu)) * CP #speed of secondary waves (shear waves)
+Root = np.roots([1, -8, 8 * ((2 - nu)/(1 - nu)), -8 / (1 - nu)]) #this command is to find the solution of this polynomial which is the square of (CR/CS)^2
+for i in Root:
+    if 0<i<1:
+        CR = np.sqrt(CS**2 *i) #ratio of (CR/CS)^2 that will be taken to find CR is positive value less than 1. since CR faster than CS
+        
+
+#Calculating seismic displacement (horizontal and vertical) by using equation from Harm's paper page. 31
+
+
+def xi_horizontal(x,z,t,f,phi): #defining Horizontal displacement for a Rayleigh wave, where x is the position along the x-axis, z is the depth in the medium, t is the time, f is the frequency of the wave, and phi is the phase shift of the wave
+    omega = 2*np.pi*f #angular frequency
+    ke = omega / CR #horizontal wave number of the Rayleigh wave
+    ks = omega / CS #secondary wave number of the Rayleigh wave
+    kp = omega / CP #primary wave number of the Rayleigh wave
+    q_z_s = np.sqrt(ke**2 - ks**2) # a new wave parameter used in Harm's model which derived related to wave number
+    q_z_p = np.sqrt(ke**2 - kp**2) # a new wave parameter used in Harm's model which derived related to wave number
+    zeta = np.sqrt(q_z_p / q_z_s) #the square root ratio of new parameters 
+    a = (1.0 / 2**(-2.72)) * f**(-2.72) #frequency dependent amplitude
+    return a * (ke * np.exp(q_z_p * z ) - zeta * q_z_s * np.exp(q_z_s * z)) * np.sin(ke * x - omega * t) #Calculating the horizontal dislacement 
+
+
+def xi_vertical(x,z,t,f,phi):
+    omega = 2*np.pi*f #angular frequency
+    ke = omega / CR #horizontal wave number of the Rayleigh wave
+    ks = omega / CS #secondary wave number of the Rayleigh wave
+    kp = omega / CP #primary wave number of the Rayleigh wave
+    q_z_s = np.sqrt(ke**2 - ks**2) #a new wave parameter used in Harm's model which derived related to wave number
+    q_z_p = np.sqrt(ke**2 - kp**2) #a new wave parameter used in Harm's model which derived related to wave number
+    zeta = np.sqrt(q_z_p / q_z_s) #the square root ratio of new parameters 
+    a = (1.0 / 2**(-2.72)) * f**(-2.72) #frequency dependent amplitude
+    return a * (q_z_p * np.exp(q_z_p * z ) - zeta * ke * np.exp(q_z_s * z)) * np.cos(ke * x - omega * t) #Calculating the vertical displacement
